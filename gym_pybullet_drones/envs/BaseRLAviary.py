@@ -70,7 +70,7 @@ class BaseRLAviary(BaseAviary):
         self.OBS_TYPE = obs
         self.ACT_TYPE = act
         #### Create integrated controllers #########################
-        if act in [ActionType.PID, ActionType.VEL, ActionType.ONE_D_PID]:
+        if act in [ActionType.PID, ActionType.VEL, ActionType.ONE_D_PID, ActionType.ATT_THR]:
             os.environ['KMP_DUPLICATE_LIB_OK']='True'
             if drone_model in [DroneModel.CF2X, DroneModel.CF2P]:
                 self.ctrl = [DSLPIDControl(drone_model=DroneModel.CF2X) for i in range(num_drones)]
@@ -140,7 +140,7 @@ class BaseRLAviary(BaseAviary):
         """
         if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL]:
             size = 4
-        elif self.ACT_TYPE==ActionType.PID:
+        elif self.ACT_TYPE in [ActionType.PID, ActionType.ATT_THR]:
             size = 3
         elif self.ACT_TYPE in [ActionType.ONE_D_RPM, ActionType.ONE_D_PID]:
             size = 1
@@ -232,6 +232,37 @@ class BaseRLAviary(BaseAviary):
                                                         cur_ang_vel=state[13:16],
                                                         target_pos=state[0:3]+0.1*np.array([0,0,target[0]])
                                                         )
+                rpm[k,:] = res
+            elif self.ACT_TYPE == ActionType.ATT_THR:
+                state = self._getDroneStateVector(k)
+
+                # action = [U, phi_des, theta_des] in [-1, 1]
+                U = float(target[0])
+                phi_des = float(target[1])
+                theta_des = float(target[2])
+
+                cur_yaw = float(state[9])
+                target_rpy = np.array([phi_des, theta_des, cur_yaw])
+
+                # Map U to thrust command in controler units (PWM-like), centered at hover
+                ctrl = self.ctrl[k]
+                
+                hover_pwm = (self.HOVER_RPM - ctrl.PWM2RPM_CONST) / ctrl.PWM2RPM_SCALE
+
+                if U >= 0:
+                    thrust_pwm = hover_pwm + U * (ctrl.MAX_PWM - hover_pwm)   # reaches MAX at U=+1
+                else:
+                    thrust_pwm = hover_pwm + U * (hover_pwm - ctrl.MIN_PWM)   # reaches MIN at U=-1
+
+                thrust_pwm = np.clip(thrust_pwm, ctrl.MIN_PWM, ctrl.MAX_PWM)
+
+                res = ctrl.computeAttitudeThrustControl(
+                    control_timestep=self.CTRL_TIMESTEP,
+                    cur_quat=state[3:7],
+                    thrust_pwm=thrust_pwm,
+                    target_rpy=target_rpy,
+                    target_rpy_rates=np.zeros(3)
+                )
                 rpm[k,:] = res
             else:
                 print("[ERROR] in BaseRLAviary._preprocessAction()")
