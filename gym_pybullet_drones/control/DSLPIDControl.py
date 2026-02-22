@@ -144,6 +144,49 @@ class DSLPIDControl(BaseControl):
         cur_rpy = p.getEulerFromQuaternion(cur_quat)
         return rpm, pos_e, computed_target_rpy[2] - cur_rpy[2]
     
+    def computeAttitudeThrustControl(self,
+                                    control_timestep,
+                                    cur_quat,
+                                    thrust_pwm,
+                                    target_rpy,
+                                    target_rpy_rates=np.zeros(3)
+                                    ):
+        """Computes the PID control action (as RPMs) for a single drone.
+
+        This methods calls `_dslPIDAttitudeControl()`.
+
+        Parameters
+        ----------
+        control_timestep : float
+            The time step at which control is computed.
+        cur_quat : ndarray
+            (4,)-shaped array of floats containing the current orientation as a quaternion.
+        thrust_pwm : float
+            Thrust command in the same "PWM-like" units used by _dslPIDAttitudeControl
+            (the value that is later mapped to RPM via PWM2RPM_SCALE/CONST).
+        target_rpy : ndarray
+            (3,)-shaped array of floats containing the desired orientation as roll, pitch, yaw.
+        target_rpy_rates : ndarray, optional
+            (3,)-shaped array of floats containing the desired roll, pitch, and yaw rates.
+
+        Returns
+        -------
+        rpm: ndarray
+            (4,1)-shaped array of integers containing the RPMs to apply to each of the 4 motors.
+        """
+        self.control_counter += 1
+
+        target_euler = np.array(target_rpy, dtype=float).copy()
+
+        rpm = self._dslPIDAttitudeControl(control_timestep,
+                                          thrust_pwm,
+                                          cur_quat,
+                                          target_euler,
+                                          target_rpy_rates
+                                          )
+        
+        return rpm
+
     ################################################################################
 
     def _dslPIDPositionControl(self,
@@ -176,11 +219,11 @@ class DSLPIDControl(BaseControl):
 
         Returns
         -------
-        float
+        thrust: float
             The target thrust along the drone z-axis.
-        ndarray
+        target_euler: ndarray
             (3,1)-shaped array of floats containing the target roll, pitch, and yaw.
-        float
+        pos_e: float
             The current position error.
 
         """
