@@ -12,6 +12,7 @@ import numpy as np
 import pybullet as p
 import pybullet_data
 import gymnasium as gym
+from gymnasium.utils import seeding
 from gym_pybullet_drones.utils.enums import DroneModel, Physics, ImageType
 
 
@@ -70,6 +71,8 @@ class BaseAviary(gym.Env):
             Whether to allocate the attributes needed by vision-based aviary subclasses.
 
         """
+        self.np_random, _ = seeding.np_random(None) # Default RNG
+
         #### Constants #############################################
         self.G = 9.8
         self.RAD2DEG = 180/np.pi
@@ -231,16 +234,17 @@ class BaseAviary(gym.Env):
 
         Returns
         -------
-        ndarray | dict[..]
+        initial_obs: ndarray | dict[..]
             The initial observation, check the specific implementation of `_computeObs()`
             in each subclass for its format.
-        dict[..]
+        initial_info: dict[..]
             Additional information as a dictionary, check the specific implementation of `_computeInfo()`
             in each subclass for its format.
 
         """
 
         # TODO : initialize random number generator with seed
+        self.np_random, _ = seeding.np_random(seed)
 
         p.resetSimulation(physicsClientId=self.CLIENT)
         #### Housekeeping ##########################################
@@ -269,21 +273,21 @@ class BaseAviary(gym.Env):
 
         Returns
         -------
-        ndarray | dict[..]
+        obs: ndarray | dict[..]
             The step's observation, check the specific implementation of `_computeObs()`
             in each subclass for its format.
-        float | dict[..]
+        reward: float | dict[..]
             The step's reward value(s), check the specific implementation of `_computeReward()`
             in each subclass for its format.
-        bool | dict[..]
+        terminated: bool | dict[..]
             Whether the current episode is over, check the specific implementation of `_computeTerminated()`
             in each subclass for its format.
-        bool | dict[..]
+        truncated: bool | dict[..]
             Whether the current episode is truncated, check the specific implementation of `_computeTruncated()`
             in each subclass for its format.
         bool | dict[..]
             Whether the current episode is trunacted, always false.
-        dict[..]
+        info: dict[..]
             Additional information as a dictionary, check the specific implementation of `_computeInfo()`
             in each subclass for its format.
 
@@ -578,11 +582,11 @@ class BaseAviary(gym.Env):
 
         Returns
         -------
-        ndarray 
+        rgb: ndarray 
             (h, w, 4)-shaped array of uint8's containing the RBG(A) image captured from the n-th drone's POV.
-        ndarray
+        dep: ndarray
             (h, w)-shaped array of uint8's containing the depth image captured from the n-th drone's POV.
-        ndarray
+        seg: ndarray
             (h, w)-shaped array of uint8's containing the segmentation image captured from the n-th drone's POV.
 
         """
