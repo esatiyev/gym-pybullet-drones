@@ -40,6 +40,9 @@ class ActionType(Enum):
     ONE_D_RPM = "one_d_rpm"     # 1D (identical input to all motors) with RPMs
     ONE_D_PID = "one_d_pid"     # 1D (identical input to all motors) with PID control
 
+    ################################################################################
+    ATT_THR = "att_thr"         # Attitude and thrust control (using PID control)
+
 ################################################################################
 
 class ObservationType(Enum):
